@@ -87,10 +87,11 @@ class horizontal_flip(object):
         
     
     
-def new_data_aug_generator(args = None):
+def new_data_aug_generator(args = None, train_preprocess = None):
+    mean, std = [0.48145466, 0.4578275, 0.40821073], [0.26862954, 0.26130258, 0.27577711]
     img_size = args.input_size
+    """
     remove_random_resized_crop = args.src
-    mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
     primary_tfl = []
     scale=(0.08, 1.0)
     interpolation='bicubic'
@@ -102,13 +103,14 @@ def new_data_aug_generator(args = None):
         ]
     else:
         primary_tfl = [
-            RandomResizedCropAndInterpolation(
-                img_size, scale=scale, interpolation=interpolation),
+            RandomResizedCropAndInterpolation(img_size, scale=scale, interpolation=interpolation),
             transforms.RandomHorizontalFlip()
         ]
-
-        
-    secondary_tfl = [transforms.RandomChoice([gray_scale(p=1.0),
+    """
+    primary_tfl = [train_preprocess.transforms[0], train_preprocess.transforms[1]]
+    secondary_tfl = [transforms.RandomCrop(img_size, padding=4,padding_mode='reflect'),
+                     transforms.RandomHorizontalFlip(),
+                     transforms.RandomChoice([gray_scale(p=1.0),
                                               Solarization(p=1.0),
                                               GaussianBlur(p=1.0)])]
    
@@ -120,4 +122,5 @@ def new_data_aug_generator(args = None):
                 mean=torch.tensor(mean),
                 std=torch.tensor(std))
         ]
-    return transforms.Compose(primary_tfl+secondary_tfl+final_tfl)
+    transform_final = transforms.Compose(primary_tfl + secondary_tfl + final_tfl)
+    return transform_final

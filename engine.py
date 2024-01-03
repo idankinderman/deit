@@ -6,6 +6,7 @@ Train and eval functions used in main.py
 import math
 import sys
 from typing import Iterable, Optional
+import wandb
 
 import torch
 
@@ -14,7 +15,6 @@ from timm.utils import accuracy, ModelEma
 
 from losses import DistillationLoss
 import utils
-
 
 def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -29,8 +29,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
     
     if args.cosub:
         criterion = torch.nn.BCEWithLogitsLoss()
-        
+
+    i = -1
     for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
+        i += 1
         samples = samples.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
@@ -47,12 +49,15 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
             outputs = model(samples)
             if not args.cosub:
                 loss = criterion(samples, outputs, targets)
+                #loss = criterion(outputs, targets) #TODO
+            """
             else:
                 outputs = torch.split(outputs, outputs.shape[0]//2, dim=0)
                 loss = 0.25 * criterion(outputs[0], targets) 
                 loss = loss + 0.25 * criterion(outputs[1], targets) 
                 loss = loss + 0.25 * criterion(outputs[0], outputs[1].detach().sigmoid())
                 loss = loss + 0.25 * criterion(outputs[1], outputs[0].detach().sigmoid()) 
+            """
 
         loss_value = loss.item()
 
@@ -73,6 +78,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
 
         metric_logger.update(loss=loss_value)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
+
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
